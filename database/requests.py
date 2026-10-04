@@ -1,6 +1,6 @@
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from database.base import async_session
-from database.models import User, Exercise, ActivityLog
+from database.models import User, Exercise, ActivityLog, PendingAchievement
 
 
 async def set_user(telegram_id: int, username: str | None = None) -> User:
@@ -67,9 +67,10 @@ async def init_exercises():
             print("Справочник упражнений успешно инициализирован")
 
 async def get_all_exercises():
-    """Возвращает список всех полезных привычек из базы"""
+    """Возвращает список всех полезных привычек из базы, отсортированныъх по ценности"""
     async with async_session() as session:
-        stmt = select(Exercise)
+        # Сортируем сначала по количеству звезд, потом по ID
+        stmt = select(Exercise).order_by(Exercise.stars_reward.asc(), Exercise.id.asc())
         result = await session.execute(stmt)
         return result.scalars().all()
 
@@ -99,5 +100,104 @@ async def log_activity(telegram_id: int, exercise_id: int):
             return user.stars, exercise
         return 0, None
 
+
+async def create_pending_achievement(telegram_id: int, text: str) -> int:
+    """Сохраняет кастомное достижение на модерацию и возвращает ID заявки"""
+    async with async_session() as session:
+        user_stmt = select(User).where(User.telegram_id == telegram_id)
+        user_res = await session.execute(user_stmt)
+        user = user_res.scalar_one_or_none()
+
+        if user:
+            pending = PendingAchievement(user_id=user.id, text=text)
+            session.add(pending)
+            await session.commit()
+            await session.refresh(pending)
+            return pending.id
+        return 0
+
+
+async def approve_achievement(pending_id: int, reward_stars: int = 3, custom_text: str | None = None):
+    """Одобряет заявкуЖ создает новое упражнение для всех и начисляет звезды автору"""
+    async with async_session() as session:
+        stmt = select(PendingAchievement).where(PendingAchievement.id == pending_id)
+        res = await session.execute(stmt)
+        pending = res.scalar_one_or_none()
+
+        if not pending:
+            return None, None
+
+        # Подтягиваем пользователя по foreign key
+        user_stmt = select(User).where(User.id == pending.user_id)
+        user_res = await session.execute(user_stmt)
+        user = user_res.scalar_one_or_none()
+
+        # Если админ указал новый текст, берем его, иначе текст из заявки
+        exercise_name = custom_text.strip() if custom_text else pending.text
+
+        new_exercise = Exercise(name=exercise_name, stars_reward=reward_stars)
+        session.add(new_exercise)
+
+        await session.flush()
+
+        #Начисляем звезды автору заявки
+        if user:
+            user.stars += reward_stars
+
+            #Также запишем в лог активности
+            session.add(ActivityLog(user_id=user.id, exercise_id=new_exercise.id))
+
+        #Удаляем заявку из таблицы ожидания
+        await session.delete(pending)
+        await session.commit()
+
+        return user.telegram_id if user else None, exercise_name
+
+
+async def reject_achievement(pending_id: int):
+    """Отклоняет заявку без наград"""
+    async with async_session() as session:
+        stmt = select(PendingAchievement).where(PendingAchievement.id == pending_id)
+        res = await session.execute(stmt)
+        pending = res.scalar_one_or_none()
+
+        if pending:
+            #Узнаем telegram_id автора перед удалением
+            user_stmt = select(User).where(User.id == pending.user_id)
+            user_res = await session.execute(user_stmt)
+            user = user_res.scalar_one_or_none()
+            telegram_id = user.telegram_id if user else None
+
+            await session.delete(pending)
+            await session.commit()
+            return telegram_id
+        return None
+
+
+async def delete_exercise(exercise_id: int):
+    """Удаляет упражнение из общего списка"""
+    async with async_session() as session:
+        await session.execute(
+            delete(WorkoutLog).where()
+        )
+    async with async_session() as session:
+        exercise = await session.get(Exercise, exercise_id)
+        if exercise:
+            await session.delete(exercise)
+            await session.commit()
+            return True
+        return False
+
+
+async def update_exercise(exercise_id: int, new_name: str, new_stars: int):
+    """Изменяет название или ценность существующего упражнения"""
+    async with async_session() as session:
+        exercise = await session.get(Exercise, exercise_id)
+        if exercise:
+            exercise.name = new_name.strip()
+            exercise.stars_reward = new_stars
+            await session.commit()
+            return True
+        return False
 
 

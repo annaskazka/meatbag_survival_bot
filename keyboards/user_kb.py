@@ -25,3 +25,12 @@ def get_exercise_kb(exercises) -> InlineKeyboardMarkup:
         )
     return builder.as_markup()
 
+
+def get_admin_approval_kb(pending_id: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="✅ Одобрить", callback_data=f"approve_{pending_id}"),
+        InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_{pending_id}")
+    )
+    return builder.as_markup()
+

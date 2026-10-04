@@ -36,3 +36,13 @@ class ActivityLog(Base):
 
     user: Mapped["User"] = relationship(back_populates="logs")
     exercise: Mapped["Exercise"] = relationship(back_populates="logs")
+
+
+class PendingAchievement(Base):
+    __tablename__ = "pending_achievements"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    text: Mapped[str] = mapped_column(String(200), nullable=False)
+
+    user: Mapped["User"] = relationship()
