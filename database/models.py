@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, BigInteger, Integer, ForeignKey, func
+from sqlalchemy import String, BigInteger, Integer, Boolean, ForeignKey, func
 
 from .base import Base
 
@@ -22,6 +22,7 @@ class Exercise(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     stars_reward: Mapped[int] = mapped_column(default=1)
+    is_repeatable: Mapped[bool] = mapped_column(Boolean, default=True)
 
     logs: Mapped[list["ActivityLog"]] = relationship(back_populates="exercise")
 

@@ -1,4 +1,5 @@
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
+from datetime import date, datetime
 from database.base import async_session
 from database.models import User, Exercise, ActivityLog, PendingAchievement
 
