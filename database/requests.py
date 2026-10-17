@@ -71,13 +71,25 @@ async def get_all_exercises():
     """Возвращает список всех полезных привычек из базы, отсортированныъх по ценности"""
     async with async_session() as session:
         # Сортируем сначала по количеству звезд, потом по ID
-        stmt = select(Exercise).order_by(Exercise.stars_reward.asc(), Exercise.id.asc())
+        stmt = select(Exercise).order_by(
+            (Exercise.stars_reward == 0).asc(),
+            Exercise.stars_reward.asc(),
+            Exercise.id.asc())
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+
+async def get_top_users(limit: int = 10):
+    """Возвращает топ 10 пользователей по количеству звезд"""
+    async with async_session() as session:
+        stmt = select(User).order_by(User.stars.desc(), User.id.asc()).limit(limit)
         result = await session.execute(stmt)
         return result.scalars().all()
 
 
 async def log_activity(telegram_id: int, exercise_id: int):
     """Записывает выполненную активность в лог и начисляет звезды"""
+
     async with async_session() as session:
         #Находим юзера
         user_stmt = select(User).where(User.telegram_id == telegram_id)
@@ -178,16 +190,21 @@ async def reject_achievement(pending_id: int):
 async def delete_exercise(exercise_id: int):
     """Удаляет упражнение из общего списка"""
     async with async_session() as session:
-        await session.execute(
-            delete(WorkoutLog).where()
-        )
-    async with async_session() as session:
         exercise = await session.get(Exercise, exercise_id)
-        if exercise:
-            await session.delete(exercise)
-            await session.commit()
-            return True
-        return False
+
+        if not exercise:
+            return False
+
+        await session.execute(
+            delete(ActivityLog).where(
+                ActivityLog.exercise_id == exercise_id
+            )
+        )
+
+        await session.delete(exercise)
+        await session.commit()
+
+        return True
 
 
 async def update_exercise(exercise_id: int, new_name: str, new_stars: int):
@@ -200,5 +217,30 @@ async def update_exercise(exercise_id: int, new_name: str, new_stars: int):
             await session.commit()
             return True
         return False
+
+
+async def update_display_name(telegram_id: int, display_name: str):
+    """Обновляет отображаемое имя пользователя в рейтинге"""
+    async with async_session() as session:
+        stmt = select(User).where(User.telegram_id == telegram_id)
+        result = await session.execute(stmt)
+        user = result.scalar_one_or_none()
+
+        if user:
+            user.display_name = display_name.strip()
+            await session.commit()
+
+
+async def set_user_inactive(telegram_id: int):
+    """Помечает пользователя неактивным, если он заблокировал бота"""
+    async with async_session() as session:
+        stmt = select(User).where(User.telegram_id == telegram_id)
+        result = await session.execute(stmt)
+        user = result.scalar_one_or_none()
+
+        if user:
+            user.is_active = False
+            await session.commit()
+
 
 
