@@ -2,3 +2,4 @@ SQLAlchemy==2.0.38
 asyncpg
 aiogram
 python-dotenv
+alembic
