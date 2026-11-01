@@ -1,7 +1,7 @@
 """set boolean columns not null
 
 Revision ID: 2e533fab1287
-Revises: 
+Revises:
 Create Date: 2026-11-01 20:10:27.527807
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '2e533fab1287'
-down_revision: Union[str, Sequence[str], None] = None
+down_revision: Union[str, Sequence[str], None] = 'b38707f9bbe8'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
