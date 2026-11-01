@@ -13,7 +13,7 @@ class User(Base):
     username: Mapped[str | None] = mapped_column(String)
     display_name: Mapped[str | None] = mapped_column(String(50))
     stars: Mapped[int] = mapped_column(Integer, default=0)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     logs: Mapped[list["ActivityLog"]] = relationship(back_populates="user")
 
@@ -24,7 +24,7 @@ class Exercise(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     stars_reward: Mapped[int] = mapped_column(default=1)
-    is_repeatable: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_repeatable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     logs: Mapped[list["ActivityLog"]] = relationship(back_populates="exercise")
 

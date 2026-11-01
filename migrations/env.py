@@ -6,7 +6,17 @@ import asyncio
 
 from alembic import context
 
-from config import DB_URL
+from alembic import context
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DB_URL = os.getenv("DB_URL")
+
+if not DB_URL:
+    raise ValueError("Не найден DB_URL в переменных окружения")
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
