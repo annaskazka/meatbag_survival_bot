@@ -6,8 +6,6 @@ import asyncio
 
 from alembic import context
 
-from alembic import context
-
 import os
 from dotenv import load_dotenv
 
