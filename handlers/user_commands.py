@@ -108,10 +108,18 @@ async def track_workout(message: Message):
 async def process_Exercise_callback(callback: CallbackQuery, state: FSMContext):
     exercise_id = int(callback.data.split("_")[1])
 
-    new_balance, exercise = await log_activity(
+    new_balance, exercise, error = await log_activity(
         telegram_id=callback.from_user.id,
         exercise_id=exercise_id
     )
+
+    if error:
+        await callback.message.edit_text(
+            f"{error}\n"
+            f"Текущий баланс <b>{new_balance}</b>"
+        )
+        await callback.answer()
+        return
 
     if exercise:
         if exercise.stars_reward > 0:

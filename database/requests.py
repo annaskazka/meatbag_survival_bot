@@ -1,5 +1,6 @@
 from sqlalchemy import select, delete, func
-from datetime import date, datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from database.base import async_session
 from database.models import User, Exercise, ActivityLog, PendingAchievement
 
@@ -101,17 +102,51 @@ async def log_activity(telegram_id: int, exercise_id: int):
         ex_res = await session.execute(ex_stmt)
         exercise = ex_res.scalar_one_or_none()
 
-        if user and exercise:
-            #Создаем запись в логе
-            log = ActivityLog(user_id=user.id, exercise_id=exercise_id)
-            session.add(log)
-            #Начисляем звезды, если это не кастомное достижение в 0 звезд
-            if exercise.stars_reward > 0:
-                user.stars += exercise.stars_reward
+        if not user or not exercise:
+            return 0, None, "Пользователь или активность не найдены"
 
-            await session.commit()
-            return user.stars, exercise
-        return 0, None
+        local_now = datetime.now(ZoneInfo(user.timexone))
+        activity_day = local_now.date()
+
+        if local_now.hour < 4:
+            activity_day -= timedelta(days=1)
+
+        if exercise.name.startswith("🍷"):
+            if activity_day.weekday() not in (4, 5):
+                return (
+                    user.stars,
+                    None,
+                    "🍷 Отметка «0 алкоголя» доступна только за пятницу и субботу."
+                )
+
+        if not exercise.is_repeatable:
+            existing_stmt = select(ActivityLog.id).where(
+                ActivityLog.user_id == user.id,
+                ActivityLog.exercise_id == exercise.id,
+                ActivityLog.activity_day == activity_day
+            )
+            existing_res = await session.execute(existing_stmt)
+
+            if existing_res.scalar_one_or_none():
+                return (
+                    user.stars,
+                    None,
+                    "Эта активность уже отмечена за выбранный день."
+                )
+
+        log = ActivityLog(
+            user_id=user.id,
+            exercise_id=exercise.id,
+            activity_day=activity_day
+        )
+        session.add(log)
+
+        if exercise.stars_reward > 0:
+            user.stars += exercise.stars_reward
+
+        await session.commit()
+
+        return user.stars, exercise, None
 
 
 async def create_pending_achievement(telegram_id: int, text: str) -> int:
