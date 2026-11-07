@@ -3,3 +3,4 @@ asyncpg
 aiogram
 python-dotenv
 alembic
+tzdata

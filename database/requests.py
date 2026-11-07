@@ -40,33 +40,57 @@ async def add_stars(telegram_id: int, count: int = 1) -> int:
         return 0
 
 
+
 async def init_exercises():
-    """Заполняет справочник упражнений при первом запуске, если он пуст"""
+    """Создает справочник активностей и обновляет их настройки."""
+
     initial_data = [
-        {"name": "🥗 Порция овощей", "stars_reward": 1},
-        {"name": "🍫 0 сахара за день", "stars_reward": 2},
-        {"name": "🌭 0 фастфуда и колбасы", "stars_reward": 2},
-        {"name": "📊 Норма КБЖУ", "stars_reward": 3},
-        {"name": "🍷 0 алкоголя (пт-вс)", "stars_reward": 3},
-        {"name": "🏋️ Кроссфит", "stars_reward": 3},
-        {"name": "🏃 Бег", "stars_reward": 3},
-        {"name": "🏔 Поход (1 день)", "stars_reward": 5},
-        {"name": "🧊 Закаливание / холодный душ", "stars_reward": 1},
-        {"name": "✨ Свое достижение", "stars_reward": 0},
+        {"name": "🥗 Порция овощей", "stars_reward": 1, "is_repeatable": True},
+        {"name": "🍫 0 сахара за день", "stars_reward": 2, "is_repeatable": False},
+        {"name": "🌭 0 фастфуда и колбасы", "stars_reward": 2, "is_repeatable": False},
+        {"name": "📊 Норма КБЖУ", "stars_reward": 3, "is_repeatable": False},
+        {"name": "🍷 0 алкоголя (пт-сб)", "stars_reward": 3, "is_repeatable": False},
+        {"name": "🏋️ Кроссфит", "stars_reward": 3, "is_repeatable": True},
+        {"name": "🏃 Бег", "stars_reward": 3, "is_repeatable": True},
+        {"name": "🏔 Поход (1 день)", "stars_reward": 5, "is_repeatable": False},
+        {"name": "🧊 Закаливание / холодный душ", "stars_reward": 1, "is_repeatable": True},
+        {"name": "✨ Свое достижение", "stars_reward": 0, "is_repeatable": True},
     ]
 
     async with async_session() as session:
-        #Проверяем есть ли уже записи в таблице Exercise
         stmt = select(Exercise)
         result = await session.execute(stmt)
-        existing = result.scalars().all()
+        exercises = result.scalars().all()
 
-        if not existing:
-            for item in initial_data:
-                exercise = Exercise(name=item["name"], stars_reward=item["stars_reward"])
-                session.add(exercise)
-            await session.commit()
-            print("Справочник упражнений успешно инициализирован")
+        existing = {exercise.name: exercise for exercise in exercises}
+
+        # Переименовываем старое название активности
+        old_alcohol_name = "🍷 0 алкоголя (пт-вс)"
+        new_alcohol_name = "🍷 0 алкоголя (пт-сб)"
+
+        if old_alcohol_name in existing and new_alcohol_name not in existing:
+            alcohol = existing.pop(old_alcohol_name)
+            alcohol.name = new_alcohol_name
+            existing[new_alcohol_name] = alcohol
+
+        for item in initial_data:
+            exercise = existing.get(item["name"])
+
+            if exercise:
+                exercise.stars_reward = item["stars_reward"]
+                exercise.is_repeatable = item["is_repeatable"]
+            else:
+                session.add(
+                    Exercise(
+                        name=item["name"],
+                        stars_reward=item["stars_reward"],
+                        is_repeatable=item["is_repeatable"]
+                    )
+                )
+
+        await session.commit()
+        print("Справочник активностей обновлен")
+
 
 async def get_all_exercises():
     """Возвращает список всех полезных привычек из базы, отсортированныъх по ценности"""
@@ -105,7 +129,7 @@ async def log_activity(telegram_id: int, exercise_id: int):
         if not user or not exercise:
             return 0, None, "Пользователь или активность не найдены"
 
-        local_now = datetime.now(ZoneInfo(user.timexone))
+        local_now = datetime.now(ZoneInfo(user.timezone))
         activity_day = local_now.date()
 
         if local_now.hour < 4:
@@ -192,8 +216,14 @@ async def approve_achievement(pending_id: int, reward_stars: int = 3, custom_tex
         if user:
             user.stars += reward_stars
 
+            local_now = datetime.now(ZoneInfo(user.timezone))
+            activity_day = local_now.date()
+
+            if local_now.hour < 4:
+                activity_day -= timedelta(days=1)
+
             #Также запишем в лог активности
-            session.add(ActivityLog(user_id=user.id, exercise_id=new_exercise.id))
+            session.add(ActivityLog(user_id=user.id, exercise_id=new_exercise.id, activity_day=activity_day))
 
         #Удаляем заявку из таблицы ожидания
         await session.delete(pending)
