@@ -76,10 +76,14 @@ async def init_exercises():
         for item in initial_data:
             exercise = existing.get(item["name"])
 
-            if exercise:
-                exercise.stars_reward = item["stars_reward"]
-                exercise.is_repeatable = item["is_repeatable"]
-            else:
+            if not exercise:
+                session.add(
+                    Exercise(
+                        name=item["name"],
+                        stars_reward=item["stars_reward"],
+                        is_repeatable=item["is_repeatable"]
+                    )
+                )
                 session.add(
                     Exercise(
                         name=item["name"],
