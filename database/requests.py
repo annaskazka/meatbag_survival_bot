@@ -84,13 +84,6 @@ async def init_exercises():
                         is_repeatable=item["is_repeatable"]
                     )
                 )
-                session.add(
-                    Exercise(
-                        name=item["name"],
-                        stars_reward=item["stars_reward"],
-                        is_repeatable=item["is_repeatable"]
-                    )
-                )
 
         await session.commit()
         print("Справочник активностей обновлен")
