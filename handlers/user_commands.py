@@ -10,7 +10,7 @@ from config import ADMIN_TELEGRAM_ID
 from database.requests import (
     get_all_exercises, log_activity, set_user, get_user, add_stars,
     create_pending_achievement, approve_achievement, reject_achievement, delete_exercise,
-    get_top_users, update_display_name
+    get_top_users, update_display_name, update_exercise
 )
 from keyboards.user_kb import main_kb, get_exercise_kb, get_admin_approval_kb
 
@@ -26,6 +26,11 @@ class CustomAchievement(StatesGroup):
 
 
 class AdminApproval(StatesGroup):
+    waiting_for_stars = State()
+
+
+class AdminEditExercise(StatesGroup):
+    waiting_for_name = State()
     waiting_for_stars = State()
 
 
@@ -283,6 +288,10 @@ async def admin_manage_exercises(message: Message):
     builder = InlineKeyboardBuilder()
     for ex in exercises:
         builder.button(
+            text=f"✏️ Изменить: {ex.name} ({ex.stars_reward}⭐)",
+            callback_data=f"editex_{ex.id}"
+        )
+        builder.button(
             text=f"❌ Удалить: {ex.name} ({ex.stars_reward}⭐)",
             callback_data=f"delex_{ex.id}"
         )
@@ -293,6 +302,51 @@ async def admin_manage_exercises(message: Message):
         "Нажми на кнопку нужной привычки, чтобы навсегда удалить её из списка:",
         reply_markup=builder.as_markup()
     )
+
+
+@user_router.callback_query(F.data.startswith("editex_"))
+async def admin_edit_exercise(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_TELEGRAM_ID:
+        await callback.answer()
+        return
+
+    exercise_id = int(callback.data.split("_")[1])
+    exercises = await get_all_exercises()
+    exercise = next((ex for ex in exercises if ex.id == exercise_id), None)
+
+    if not exercise:
+        await callback.answer("Активность не найдена", show_alert=True)
+        return
+
+    await state.update_data(
+        exercise_id=exercise.id,
+        old_name=exercise.name,
+        old_stars=exercise.stars_reward
+    )
+    await state.set_state(AdminEditExercise.waiting_for_name)
+
+    await callback.message.answer(
+        f"✏️ Текущее название: {exercise.name}\n"
+        "Отправь новое название активности:"
+    )
+    await callback.answer()
+
+
+@user_router.message(AdminEditExercise.waiting_for_name)
+async def admin_edit_exercise_name(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_TELEGRAM_ID:
+        return
+
+    new_name = message.text.strip()
+
+    if not new_name:
+        await message.answerr("Название не может быть пустым. Попробуй ещё раз:")
+        return
+
+    await state.update_data(new_name=new_name)
+    await state.set_state(AdminEditExercise.waiting_for_stars)
+
+    await message.answer("Теперь отправь новое количество звёзд за эту активность:"
 
 
 @user_router.callback_query(F.data.startswith("delex_"))
