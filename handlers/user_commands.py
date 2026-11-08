@@ -332,6 +332,37 @@ async def admin_edit_exercise(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+@user_router.message(AdminEditExercise.waiting_for_stars)
+async def admin_edit_exercise_stars(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_TELEGRAM_ID:
+        return
+
+    if not message.text.isdigit():
+        await message.answer("Отправь количество звёзд целым неотрицательным числом:")
+        return
+
+    new_stars = int(message.text)
+
+    data = await state.get_data()
+
+    success = await update_exercise(
+        exercise_id=data["exercise_id"],
+        new_name=data["new_name"],
+        new_stars=new_stars
+    )
+
+    await state.clear()
+
+    if success:
+        await message.answer(
+            f"✅ Активность обновлена!\n"
+            f"Название: {data['new_name']}\n"
+            f"Награда: {new_stars}⭐"
+        )
+    else:
+        await message.answer("Не удалось обновить активность.")
+
+
 @user_router.message(AdminEditExercise.waiting_for_name)
 async def admin_edit_exercise_name(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_TELEGRAM_ID:
@@ -340,13 +371,13 @@ async def admin_edit_exercise_name(message: Message, state: FSMContext):
     new_name = message.text.strip()
 
     if not new_name:
-        await message.answerr("Название не может быть пустым. Попробуй ещё раз:")
+        await message.answer("Название не может быть пустым. Попробуй ещё раз:")
         return
 
     await state.update_data(new_name=new_name)
     await state.set_state(AdminEditExercise.waiting_for_stars)
 
-    await message.answer("Теперь отправь новое количество звёзд за эту активность:"
+    await message.answer("Теперь отправь новое количество звёзд за эту активность:")
 
 
 @user_router.callback_query(F.data.startswith("delex_"))
