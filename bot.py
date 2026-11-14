@@ -14,6 +14,8 @@ from config import BOT_TOKEN
 from database.base import Base, engine
 from database.requests import init_exercises, set_user_inactive  # <--- Добавили set_user_inactive сюда
 from handlers.user_commands import user_router
+from handlers.admin_handlers import admin_router
+from handlers.achievement_handlers import achievement_router
 
 
 async def main() -> None:
@@ -37,6 +39,8 @@ async def main() -> None:
             return True  # Тихо гасим ошибку, бот не падает
         raise event.exception
 
+    dp.include_router(achievement_router)
+    dp.include_router(admin_router)
     dp.include_router(user_router)
 
     print("Бот запущен и ждет сообщения...")
