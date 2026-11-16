@@ -1,19 +1,18 @@
 # Старт, меню, нажатия на кнопки
 from aiogram import Router, F
-from aiogram.filters import CommandStart, Command
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import Message, CallbackQuery
+from aiogram.filters import CommandStart
+from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from config import ADMIN_TELEGRAM_ID
 
 from database.requests import (
-    get_all_exercises, log_activity, set_user, get_user, add_stars,
-    create_pending_achievement, approve_achievement, reject_achievement, delete_exercise,
-    get_top_users, update_display_name, update_exercise
+    set_user,
+    get_user,
+    get_top_users,
+    update_display_name
 )
-from keyboards.user_kb import main_kb, get_exercise_kb, get_admin_approval_kb
-from handlers.states import CustomAchievement
+
+from keyboards.user_kb import main_kb
 
 
 user_router = Router()
@@ -23,9 +22,11 @@ class ProfileStates(StatesGroup):
     waiting_for_name = State()
 
 
-class AdminApproval(StatesGroup):
-    waiting_for_stars = State()
+user_router = Router()
 
+
+class ProfileStates(StatesGroup):
+    waiting_for_name = State()
 
 
 @user_router.message(CommandStart())
@@ -74,24 +75,4 @@ async def process_mandatory_name(message: Message, state: FSMContext):
         f"Теперь ты в системе. Погнали выживать! 💪",
         reply_markup=main_kb
     )
-
-
-@user_router.message(F.text == "⭐️ Мой баланс")
-async def show_balance(message: Message):
-    user = await get_user(message.from_user.id)
-    stars = user.stars if user else 0
-    await message.answer(f"Твой текущий баланс: ⭐️ <b>{stars}</b> звезд.")
-
-
-@user_router.message(F.text == "🏆 Рейтинг")
-async def show_leaderboard(message: Message):
-    top_users = await get_top_users(limit=10)
-
-    text = "🏆 <b>Топ-10 участников по звездам:</b>\n\n"
-    for idx, u in enumerate(top_users, 1):
-        name = u.display_name or (f"@{u.username}" if u.username else f"Участник {u.telegram_id}")
-        medal = "🥇" if idx == 1 else ("🥈" if idx == 2 else ("🥉" if idx == 3 else f"{idx}."))
-        text += f"{medal} <b>{name}</b> — ⭐️ <b>{u.stars}</b>\n"
-
-    await message.answer(text)
 

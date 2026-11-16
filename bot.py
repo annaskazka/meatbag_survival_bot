@@ -16,6 +16,8 @@ from database.requests import init_exercises, set_user_inactive  # <--- Доба
 from handlers.user_commands import user_router
 from handlers.admin_handlers import admin_router
 from handlers.achievement_handlers import achievement_router
+from handlers.activity_handlers import activity_router
+from handlers.profile_handlers import profile_router
 
 
 async def main() -> None:
@@ -40,8 +42,10 @@ async def main() -> None:
         raise event.exception
 
     dp.include_router(achievement_router)
+    dp.include_router(activity_router)
     dp.include_router(admin_router)
     dp.include_router(user_router)
+    dp.include_router(profile_router)
 
     print("Бот запущен и ждет сообщения...")
 
