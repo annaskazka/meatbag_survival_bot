@@ -1,25 +1,14 @@
 # Старт, меню, нажатия на кнопки
-from aiogram import Router, F
+from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from database.requests import (
-    set_user,
-    get_user,
-    get_top_users,
-    update_display_name
-)
+from database.requests import set_user, update_display_name
+
 
 from keyboards.user_kb import main_kb
-
-
-user_router = Router()
-
-
-class ProfileStates(StatesGroup):
-    waiting_for_name = State()
 
 
 user_router = Router()
