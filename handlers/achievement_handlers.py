@@ -2,6 +2,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from config import ADMIN_TELEGRAM_ID
 
@@ -22,9 +23,25 @@ from handlers.states import CustomAchievement
 achievement_router = Router()
 
 
+def get_repeatability_kb():
+    builder = InlineKeyboardBuilder
+
+    builder.button(
+        text="🔒 Один раз в день",
+        callback_data="repeat_0"
+    )
+    builder.button(
+        text="🔁 Несколько раз в день",
+        callback_data="repeat_1"
+    )
+
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 class AdminApproval(StatesGroup):
     waiting_for_stars = State()
-
+    waiting_for_repeatability = State()
 
 
 # Ловим текст кастомного достижения от пользователя
@@ -108,33 +125,17 @@ async def process_admin_stars_input(message: Message, state: FSMContext):
         return
 
     reward_stars = int(stars_str)
-    data = await state.get_data()
-    pending_id = data.get("pending_id")
 
-    await state.clear()
-
-    # Запускаем одобрение в базе с введенным количеством звезд
-    author_telegram_id, achievement_text = await approve_achievement(
-        pending_id,
+    await state.update_data(
         reward_stars=reward_stars,
         custom_text=custom_text
     )
 
-    if author_telegram_id:
-        try:
-            await message.bot.send_message(
-                chat_id=author_telegram_id,
-                text=f"🎉 <b>Твое достижение одобрено!</b>\n\n"
-                     f"<i>«{achievement_text}»</i>\n"
-                     f"Оно добавлено в общий список привычек для всех, а тебе начислено <b>+{reward_stars}⭐</b>!"
-            )
-        except Exception:
-            pass
+    await state.set_state(AdminApproval.waiting_for_repeatability)
 
     await message.answer(
-        f"✅ <b>Успешно добавлено в общий список!</b>\n"
-        f"Достижение: <i>«{achievement_text}»</i>\n"
-        f"Награда: <b>+{reward_stars}⭐</b>"
+        "Выбери, как часто пользователи смогут отмечать это достижение:",
+        reply_markup=get_repeatability_kb()
     )
 
 
